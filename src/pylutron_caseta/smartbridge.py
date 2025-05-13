@@ -1137,7 +1137,6 @@ class Smartbridge:
             device_name=" ".join((button_name, "LED")),
             parent_device=keypad_device["device_id"],
         )
-        await self._subscribe_to_button_led_status(button_led)
 
     async def _load_ra3_zones(self, area):
         # For each area, process zones.  They will masquerade as devices
@@ -1384,6 +1383,9 @@ class Smartbridge:
 
     async def _subscribe_to_button_status(self):
         """Subscribe to button status updates."""
+        if len(self.buttons) > 100:
+            _LOG.warning("Skipping button status subscription (%d buttons)", len(self.buttons))
+            return
         _LOG.debug("Subscribing to button status updates")
         try:
             for button in self.buttons:
@@ -1397,18 +1399,20 @@ class Smartbridge:
             _LOG.error("Failed device status subscription: %s", ex.response)
             return
 
-    async def _subscribe_to_button_led_status(self, button_led_id):
         """Subscribe to button LED status updates."""
         _LOG.debug(
-            "Subscribing to button LED status updates for LED ID %s", button_led_id
+            "Subscribing to button LED status updates"
         )
         try:
-            response, _ = await self._subscribe(
-                f"/led/{button_led_id}/status",
-                self._handle_button_led_status,
-            )
-            _LOG.debug("Subscribed to button LED %s status", button_led_id)
-            self._handle_button_led_status(response)
+            for button in self.buttons:
+                button_led = button["button_led"]
+                button_led_id = button_led["device_id"]
+                response, _ = await self._subscribe(
+                    f"/led/{button_led_id}/status",
+                    self._handle_button_led_status,
+                )
+                _LOG.debug("Subscribed to button LED %s status", button_led_id)
+                self._handle_button_led_status(response)
         except BridgeResponseError as ex:
             _LOG.error("Failed device status subscription: %s", ex.response)
             return

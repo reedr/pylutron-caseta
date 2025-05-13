@@ -12,7 +12,7 @@ from . import BridgeDisconnectedError
 from .messages import Response
 
 _LOG = logging.getLogger(__name__)
-_DEFAULT_LIMIT = 2**18
+_DEFAULT_LIMIT = 1*1024*1024
 
 
 def _make_tag() -> str:
