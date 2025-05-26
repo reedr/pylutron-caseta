@@ -163,7 +163,28 @@ class Smartbridge:
         :param device_id: device id, e.g. 5
         :param callback_: callback to invoke
         """
-        self._subscribers[device_id] = callback_
+        device = self.devices.get(device_id)
+        if device is not None:
+            self._subscribers[device_id] = callback_
+
+    async def async_add_subscriber(self, device_id: str, callback_: Callable[[], None]):
+        """
+        Add a listener to be notified of state changes.
+
+        :param device_id: device id, e.g. 5
+        :param callback_: callback to invoke
+        """
+        device = self.devices.get(device_id)
+        if device is not None:
+            if device["type"] == "KeypadLED":
+                _LOG.debug("Add LED subscription")
+                await self._subscribe_to_button_led_status(device_id)
+            self._subscribers[device_id] = callback_
+
+    def del_subscriber(self, device_id: str) -> None:
+        """Remove a callback."""
+        if device_id in self._subscribers:
+            del self._subscribers[device_id]
 
     def add_occupancy_subscriber(
         self, occupancy_group_id: str, callback_: Callable[[], None]
@@ -1133,6 +1154,7 @@ class Smartbridge:
             type="KeypadLED",
             model="KeypadLED",
             serial=None,
+            button_id=button_id,
             zone=None,
             device_name=" ".join((button_name, "LED")),
             parent_device=keypad_device["device_id"],
@@ -1383,9 +1405,6 @@ class Smartbridge:
 
     async def _subscribe_to_button_status(self):
         """Subscribe to button status updates."""
-        if len(self.buttons) > 100:
-            _LOG.warning("Skipping button status subscription (%d buttons)", len(self.buttons))
-            return
         _LOG.debug("Subscribing to button status updates")
         try:
             for button in self.buttons:
@@ -1399,20 +1418,18 @@ class Smartbridge:
             _LOG.error("Failed device status subscription: %s", ex.response)
             return
 
+    async def _subscribe_to_button_led_status(self, button_led_id):
         """Subscribe to button LED status updates."""
         _LOG.debug(
-            "Subscribing to button LED status updates"
+            "Subscribing to button LED status updates for LED ID %s", button_led_id
         )
         try:
-            for button in self.buttons:
-                button_led = button["button_led"]
-                button_led_id = button_led["device_id"]
-                response, _ = await self._subscribe(
-                    f"/led/{button_led_id}/status",
-                    self._handle_button_led_status,
-                )
-                _LOG.debug("Subscribed to button LED %s status", button_led_id)
-                self._handle_button_led_status(response)
+            response, _ = await self._subscribe(
+                f"/led/{button_led_id}/status",
+                self._handle_button_led_status,
+            )
+            _LOG.debug("Subscribed to button LED %s status", button_led_id)
+            self._handle_button_led_status(response)
         except BridgeResponseError as ex:
             _LOG.error("Failed device status subscription: %s", ex.response)
             return
