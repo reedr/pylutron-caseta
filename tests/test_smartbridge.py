@@ -162,6 +162,9 @@ class Bridge:
         self.occupancy_group_list_result = response_from_json_file(
             "occupancygroups.json"
         )
+        self.smart_away_subscription_data_result = response_from_json_file(
+            "smartaway.json"
+        )
         self.occupancy_group_subscription_data_result = response_from_json_file(
             "occupancygroupsubscribe.json"
         )
@@ -226,6 +229,25 @@ class Bridge:
             for task in (connect_task, *running_tasks):
                 task.cancel()
 
+    @staticmethod
+    def _battery_status_response(url: str, level_state: str = "Good") -> Response:
+        """Build a device status response with battery information."""
+        return Response(
+            CommuniqueType="ReadResponse",
+            Header=ResponseHeader(
+                MessageBodyType="OneDeviceStatus",
+                StatusCode=ResponseStatus(200, "OK"),
+                Url=url,
+            ),
+            Body={
+                "DeviceStatus": {
+                    "href": url,
+                    "Device": {"href": url.removesuffix("/status")},
+                    "BatteryStatus": {"LevelState": level_state},
+                }
+            },
+        )
+
     async def _accept_connection(self, leap, wait):
         """Accept a connection from SmartBridge (implementation)."""
         # Read request on /areas
@@ -289,6 +311,14 @@ class Bridge:
             )
             response.set_result(self.button_subscription_data_result)
             leap.requests.task_done()
+
+        # Subscribe request on /system/away/1/status
+        request, response = await wait(leap.requests.get())
+        assert request == Request(
+            communique_type="SubscribeRequest", url="/system/away/1/status"
+        )
+        response.set_result(self.smart_away_subscription_data_result)
+        leap.requests.task_done()
 
         # Check the zone status on each zone
         requested_zones = []
@@ -956,6 +986,20 @@ async def test_device_list(bridge: Bridge):
 
     devices = bridge.target.get_devices_by_type("Tilt")
     assert [device["device_id"] for device in devices] == ["11"]
+
+
+@pytest.mark.asyncio
+async def test_get_battery_status(bridge: Bridge):
+    """Test reading battery status on demand."""
+    task = asyncio.create_task(bridge.target.get_battery_status("7"))
+
+    request, response = await asyncio.wait_for(bridge.leap.requests.get(), 10)
+    assert request == Request(communique_type="ReadRequest", url="/device/7/status")
+    response.set_result(bridge._battery_status_response(request.url))
+    bridge.leap.requests.task_done()
+
+    assert await asyncio.wait_for(task, 10) == "Good"
+    assert "battery_status" not in bridge.target.get_device_by_id("7")
 
 
 @pytest.mark.asyncio

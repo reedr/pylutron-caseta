@@ -42,6 +42,7 @@ _LEAP_DEVICE_TYPES = {
         "TriathlonHoneycombShade",
         "TriathlonEssentialsRollerShade",
         "TriathlonRollerShade",
+        "TriathlonTiltOnlyWoodBlind",
         "QsWirelessShade",
         "QsWirelessHorizontalSheerBlind",
         "QsWirelessWoodBlind",
@@ -62,6 +63,7 @@ _LEAP_DEVICE_TYPES = {
         "Pico4ButtonScene",
         "Pico4ButtonZone",
         "Pico4Button2Group",
+        "PaddleSwitchPico",
         "FourGroupRemote",
         "SeeTouchTabletopKeypad",
         "SunnataKeypad",
@@ -95,6 +97,7 @@ RA3_OCCUPANCY_SENSOR_DEVICE_TYPES = [
 
 BUTTON_STATUS_PRESSED = "Press"
 BUTTON_STATUS_RELEASED = "Release"
+BUTTON_STATUS_MULTITAP = "MultiTap"
 
 
 class BridgeDisconnectedError(Exception):
